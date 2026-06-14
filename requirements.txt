@@ -90,3 +90,5 @@ xarray==2026.4.0
 xyzservices==2026.3.0
 uvicorn
 gunicorn
+asgiref
+
