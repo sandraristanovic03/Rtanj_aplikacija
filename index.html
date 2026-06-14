@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analiza Šuma - Rtanj</title>
+    
+    <!-- Leaflet CSS za mapu -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            background-color: #2c3e50;
+        }
+        #sidebar {
+            width: 380px;
+            background-color: #ffffff;
+            padding: 20px;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+        #map {
+            flex-grow: 1;
+            height: 100%;
+        }
+        h2 {
+            margin-top: 0;
+            color: #1e824c;
+            border-bottom: 2px solid #2ecc71;
+            padding-bottom: 10px;
+            font-size: 20px;
+        }
+        h3 {
+            margin: 5px 0;
+            font-size: 15px;
+            color: #2c3e50;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-weight: bold;
+            color: #34495e;
+            font-size: 13px;
+        }
+        select, button {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #bdc3c7;
+            font-size: 14px;
+        }
+        button {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+            padding: 10px;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+        #stats-box, #chart-box, #table-box {
+            padding: 12px;
+            background-color: #ecf0f1;
+            border-left: 5px solid #3498db;
+            border-radius: 3px;
+        }
+        #chart-box { border-left-color: #9b59b6; }
+        #table-box { border-left-color: #e67e22; }
+        .loading { font-style: italic; color: #7f8c8d; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-top: 5px;
+            background: white;
+        }
+        th, td {
+            border: 1px solid #dcdde1;
+            padding: 5px 3px;
+            text-align: center;
+        }
+        th { background-color: #34495e; color: white; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+    </style>
+
+    <!-- Chart.js za grafikone -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>ANALIZA ŠUMA – RTANJ</h2>
+        
+        <!-- REŽIM PRIKAZA -->
+        <div class="form-group">
+            <label for="mode-select">Šta želiš da vidiš na mapi?</label>
+            <select id="mode-select" onchange="prilagodiFormu()">
+                <option value="single">Pojedinačna godina (Apsolutni indeks)</option>
+                <option value="diff" selected>Razlika između dve godine</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="index-select">Vegetacioni indeks:</label>
+            <select id="index-select" onchange="promeniIndeksNaGrafikonu()">
+                <option value="NDVI">NDVI (Standardni indeks vegetacije)</option>
+                <option value="NBR">NBR (Indeks opožarenosti / sušenja)</option>
+                <option value="LAI">LAI (Indeks lisne mase)</option>
+                <option value="SAVI">SAVI (Indeks korigovan podlogom)</option>
+                <option value="EVI">EVI (Poboljšani indeks)</option>
+            </select>
+        </div>
+
+        <!-- GODINA 1 -->
+        <div class="form-group">
+            <label id="year1-label" for="year1">Početna godina:</label>
+            <select id="year1">
+                <option value="2016">2016</option>
+                <option value="2017">2017</option>
+                <option value="2018">2018</option>
+                <option value="2019">2019</option>
+                <option value="2020">2020</option>
+                <option value="2021">2021</option>
+                <option value="2022">2022</option>
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+            </select>
+        </div>
+
+        <!-- GODINA 2 -->
+        <div class="form-group" id="year2-container">
+            <label for="year2">Krajnja godina:</label>
+            <select id="year2">
+                <option value="2024" selected>2024</option>
+                <option value="2023">2023</option>
+                <option value="2022">2022</option>
+                <option value="2021">2021</option>
+                <option value="2020">2020</option>
+                <option value="2019">2019</option>
+                <option value="2018">2018</option>
+                <option value="2017">2017</option>
+                <option value="2016">2016</option>
+            </select>
+        </div>
+
+        <button onclick="prikaziMapu()">Učitaj sloj na mapu</button>
+
+        <div id="stats-box">
+            <h3>Statistika površine</h3>
+            <div id="stats-content">Kliknite na dugme iznad za računanje šumskog fonda.</div>
+        </div>
+
+        <div id="chart-box">
+            <h3>Trend izabranog indeksa (2016-2024)</h3>
+            <canvas id="trendChart" width="100%" height="65"></canvas>
+        </div>
+
+        <div id="table-box">
+            <h3>Godišnje vrednosti</h3>
+            <div id="table-content" class="loading">Učitavam podatke sa satelita...</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([43.77, 21.89], 12);
+
+        L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            attribution: 'Google'
+        }).addTo(map);
+
+        var trenutniSloj = null;
+        var globalniPodaci = []; 
+        var mojGrafikon = null;
+
+        window.onload = function() {
+            ucitajVremenskuSeriju();
+            prilagodiFormu();
+        };
+
+        function prilagodiFormu() {
+            var mode = document.getElementById("mode-select").value;
+            var y2Container = document.getElementById("year2-container");
+            var y1Label = document.getElementById("year1-label");
+
+            if (mode === "single") {
+                y2Container.style.display = "none";
+                y1Label.innerText = "Izaberi godinu za prikaz:";
+            } else {
+                y2Container.style.display = "flex";
+                y1Label.innerText = "Početna godina:";
+            }
+        }
+
+        function ucitajVremenskuSeriju() {
+            fetch('http://127.0.0.1:8000/timeseries')
+                .then(response => response.json())
+                .then(data => {
+                    data.sort((a, b) => a.godina - b.godina);
+                    globalniPodaci = data;
+                    generisiTabelu(data);
+                    iscrtajGrafikon(data, 'NDVI');
+                })
+                .catch(err => {
+                    console.error("Greška:", err);
+                    document.getElementById("table-content").innerHTML = "Greška pri učitavanju.";
+                });
+        }
+
+        function generisiTabelu(data) {
+            var html = `<table><thead><tr><th>Godina</th><th>NDVI</th><th>NBR</th><th>SAVI</th><th>LAI</th></tr></thead><tbody>`;
+            data.forEach(row => {
+                html += `<tr>
+                    <td><strong>${row.godina}</strong></td>
+                    <td>${row.NDVI ? row.NDVI.toFixed(3) : '-'}</td>
+                    <td>${row.NBR ? row.NBR.toFixed(3) : '-'}</td>
+                    <td>${row.SAVI ? row.SAVI.toFixed(3) : '-'}</td>
+                    <td>${row.LAI ? row.LAI.toFixed(2) : '-'}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById("table-content").innerHTML = html;
+        }
+
+        function iscrtajGrafikon(data, indeks) {
+            var godine = data.map(row => row.godina);
+            var vrednosti = data.map(row => row[indeks]);
+            var ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (mojGrafikon) { mojGrafikon.destroy(); }
+
+            mojGrafikon = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: godine,
+                    datasets: [{
+                        label: 'Prosek za ' + indeks,
+                        data: vrednosti,
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.2,
+                        fill: true
+                    }]
+                },
+                options: { responsive: true }
+            });
+        }
+
+        function promeniIndeksNaGrafikonu() {
+            var selektovaniIndeks = document.getElementById("index-select").value;
+            if (globalniPodaci.length > 0) {
+                iscrtajGrafikon(globalniPodaci, selektovaniIndeks);
+            }
+        }
+
+        function prikaziMapu() {
+            var mode = document.getElementById("mode-select").value;
+            var idx = document.getElementById("index-select").value;
+            var y1 = document.getElementById("year1").value;
+            var y2 = document.getElementById("year2").value;
+            
+            var statsContent = document.getElementById("stats-content");
+            statsContent.innerHTML = "<span class='loading'>Učitavam sloj i računam...</span>";
+
+            var endpoint = (mode === "single") ? 
+                `http://127.0.0.1:8000/single/${y1}/${idx}` : 
+                `http://127.0.0.1:8000/diff/${y1}/${y2}/${idx}`;
+
+            fetch(endpoint)
+                .then(response => response.json())
+                .then(data => {
+                    if (trenutniSloj) { map.removeLayer(trenutniSloj); }
+                    trenutniSloj = L.tileLayer(data.urlFormat).addTo(map);
+                })
+                .catch(err => {
+                    console.error("Greška sa mapom:", err);
+                    statsContent.innerHTML = "Greška prilikom učitavanja sloja.";
+                });
+
+            var agendaStats = (mode === "single") ? y1 : y2;
+            fetch(`http://127.0.0.1:8000/stats/${agendaStats}`)
+                .then(response => response.json())
+                .then(data => {
+                    // POPRAVLJENO: Koristi se data.area jer Earth Engine vraća površinu pod ključem 'area'
+                    if(data && data.area !== undefined && data.area !== null) {
+                        statsContent.innerHTML = `<strong>Površina šume (${agendaStats}):</strong><br>${data.area.toFixed(2)} ha`;
+                    } else {
+                        statsContent.innerHTML = "Nema podataka za izabranu godinu.";
+                    }
+                })
+                .catch(err => {
+                    console.error("Greška sa statistikom:", err);
+                    statsContent.innerHTML = "Greška prilikom računanja statistike.";
+                });
+        }
+    </script>
+</body>
+</html>
