@@ -1,11 +1,22 @@
 import ee
+import json
+import os
 from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 from asgiref.wsgi import WsgiToAsgi
 import uvicorn
 
-# 1. Inicijalizacija Earth Engine biblioteke
-ee.Initialize(project='ee-sandraristanovic03')
+# 1. Inicijalizacija Earth Engine biblioteke (Prilagođeno za Render i lokalno)
+ee_key_json = os.environ.get("EE_ACCOUNT_KEY")
+
+if ee_key_json:
+    # Ako je aplikacija na Renderu, učitavamo ključ iz Environment Variables
+    info = json.loads(ee_key_json)
+    credentials = ee.ServiceAccountCredentials(info['client_email'], key_data=ee_key_json)
+    ee.Initialize(credentials=credentials, project='ee-sandraristanovic03')
+else:
+    # Ako si pokrenula lokalno na svom računaru, koristi klasičnu prijavu
+    ee.Initialize(project='ee-sandraristanovic03')
 
 app = Flask(__name__)
 CORS(app)
@@ -135,7 +146,6 @@ def diff(y1, y2, index):
 def single_year_map(year, index):
     img = get_composite(year).select(index)
 
-    # Vizuelizacija prilagođena tipu indeksa
     vis_params = {"min": 0, "max": 0.8, "palette": ["#ece7f2", "#a6bdbb", "#2ca25f"]}
 
     if index == "NBR":
@@ -198,4 +208,4 @@ def timeseries():
 asgi_app = WsgiToAsgi(app)
 
 if __name__ == "__main__":
-    uvicorn.run(asgi_app, host="127.0.0.1", port=8000)
+    uvicorn.run("app:asgi_app", host="127.0.0.1", port=8000, reload=True)
