@@ -178,7 +178,6 @@
 
     <div id="map"></div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         var map = L.map('map').setView([43.77, 21.89], 12);
@@ -211,7 +210,8 @@
         }
 
         function ucitajVremenskuSeriju() {
-            fetch('http://127.0.0.1:8000/timeseries')
+            // POPRAVLJENO: Relativna putanja bez lokalnog hosta
+            fetch('/timeseries')
                 .then(response => response.json())
                 .then(data => {
                     data.sort((a, b) => a.godina - b.godina);
@@ -281,9 +281,10 @@
             var statsContent = document.getElementById("stats-content");
             statsContent.innerHTML = "<span class='loading'>Učitavam sloj i računam...</span>";
 
+            // POPRAVLJENO: Relativne putanje
             var endpoint = (mode === "single") ? 
-                `http://127.0.0.1:8000/single/${y1}/${idx}` : 
-                `http://127.0.0.1:8000/diff/${y1}/${y2}/${idx}`;
+                `/single/${y1}/${idx}` : 
+                `/diff/${y1}/${y2}/${idx}`;
 
             fetch(endpoint)
                 .then(response => response.json())
@@ -297,10 +298,11 @@
                 });
 
             var agendaStats = (mode === "single") ? y1 : y2;
-            fetch(`http://127.0.0.1:8000/stats/${agendaStats}`)
+            
+            // POPRAVLJENO: Relativna putanja
+            fetch(`/stats/${agendaStats}`)
                 .then(response => response.json())
                 .then(data => {
-                    // POPRAVLJENO: Koristi se data.area jer Earth Engine vraća površinu pod ključem 'area'
                     if(data && data.area !== undefined && data.area !== null) {
                         statsContent.innerHTML = `<strong>Površina šume (${agendaStats}):</strong><br>${data.area.toFixed(2)} ha`;
                     } else {
